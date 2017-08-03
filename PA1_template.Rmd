@@ -1,25 +1,76 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
-
+# Reproducible Research : Project 1
 
 ## Loading and preprocessing the data
-
-
+```{r}
+data1 <- read.csv("activity.csv")
+```
 
 ## What is mean total number of steps taken per day?
-
-
+```{r}
+totalsteps <- tapply(data1$steps,data1$date,FUN=sum, na.rm=TRUE)
+library(ggplot2)
+qplot(totalsteps,binwidth=1000,xlab="Total number of steps per day")
+mean(totalsteps,na.rm = TRUE)
+median(totalsteps, na.rm = TRUE)
+```
 
 ## What is the average daily activity pattern?
+### Plotting a time series chart per 5-minute interval
+```{r}
+avgsteps <- aggregate(x=list(steps=data1$steps),by=list(interval=data1$interval),FUN=mean,na.rm=TRUE)
+ggplot(data=avgsteps,aes(x=interval,y=steps)) + geom_line() + 
+  xlab("5-minute interval") + ylab("Average steps")
+```
 
-
+## Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+avgsteps[which.max(avgsteps$steps),]
+```
 
 ## Imputing missing values
+### replace missing value by the mean of its 5-minute interval
+```{r}
+imputevalue <- function(steps, interval) {
+  filled <- NA
+  if (!is.na(steps))
+    filled <- c(steps)
+  else
+    filled <- (avgsteps[avgsteps$interval==interval, "steps"])
+  return(filled)
+  
+}
+impute <- data1
+impute$steps <- mapply(imputevalue, impute$steps, impute$interval)
+```
 
+## plotting histogram of imputed dataset
+```{r}
+Totalsteps <- tapply(impute$steps, impute$date, FUN=sum)
+qplot(Totalsteps, binwidth=1000, xlab="total number of steps taken each day")
+```
 
-
+## mean and media values of imputed dataset
+```{r}
+mean(Totalsteps)
+median(Totalsteps)
+```
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+week <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+        return("weekday")
+    else if (day %in% c("Saturday", "Sunday"))
+        return("weekend")
+    else
+        stop("date error")
+}
+impute$date <- as.Date(impute$date)
+impute$day <- sapply(impute$date, FUN=week)
+```
+## panel plot containing plots of average number of steps taken on weekdays and weekends.
+```{r}
+averages <- aggregate(steps ~ interval + day, data=impute, mean)
+ggplot(averages, aes(interval, steps)) + geom_line() + facet_grid(day ~ .) +
+    xlab("5-minute interval") + ylab("Number of steps")
+```
